@@ -44,7 +44,7 @@ class FakeNewsPreprocessor:
         self.vocab_after_stemming = Counter()
 
     def clean_text_series(self, series):
-        """Fill NaN, remove lowercase, remove URLs and HTML."""
+        """Fill NaN, turn to lowercase, remove URLs and HTML."""
         s = series.fillna("").str.lower()
         s = s.str.replace(r"http\S+|www\S+", "", regex=True)
         s = s.str.replace(r"<.*?>", "", regex=True)
