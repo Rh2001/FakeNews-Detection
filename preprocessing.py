@@ -46,8 +46,8 @@ class FakeNewsPreprocessor:
     def clean_text_series(self, series):
         """Fill NaN, turn to lowercase, remove URLs and HTML."""
         s = series.fillna("").str.lower()
-        s = s.str.replace(r"http\S+|www\S+", "", regex=True)
-        s = s.str.replace(r"<.*?>", "", regex=True)
+        #s = s.str.replace(r"http\S+|www\S+", "", regex=True)
+        #s = s.str.replace(r"<.*?>", "", regex=True)
         return s
 
     # Tokenize one column at a time using spaCy, yielding lists of tokens. This is used in process_chunk, and separated to not blow up the RAM.
