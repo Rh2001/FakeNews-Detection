@@ -1,14 +1,8 @@
-'''Preprocessing script for our project. 
-It is 28 gigabytes of data, I only process 10% of it here
-but even then it destroyed my laptop. You can run it for a while.
-I made it so it reads in chunks and saves it on the disk incrementally,
-you can check its input after few chunks have been processed
-and see if it is good enough
-I applied stemming too even though lemmatization might be better,
-but the assignment needed us to do stemming. Download all 28gbs of data
-and put it in a folder called 'data' and run the script.
-You need at least 16gbs for this to not crash, it takes up around 6gbs
-and then empties the RAM after the chunk is processed.'''
+"""
+Updated Preprocessing script for fake news dataset.
+Processes large CSV in chunks, tokenizes in parallel with spaCy, removes stopwords, keeps HTML and UML for analysis(they're commented)
+applies stemming, and saves processed chunks incrementally.
+"""
 
 import pandas as pd
 import csv
@@ -20,72 +14,69 @@ import os
 import time
 
 class FakeNewsPreprocessor:
-    # Download spaCy model and initialize stop words and stemmer.
-    def __init__(self):
+    def __init__(self, n_process=4):
         print("Loading spaCy English model...")
         try:
             self.nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
         except OSError:
             spacy.cli.download("en_core_web_sm")
             self.nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
+
         self.stop_words = self.nlp.Defaults.stop_words
         self.stemmer = PorterStemmer()
 
-        # The columns we want to keep, I removed type from stemming and kept the full word because we will be using it for  'labels' later on.
-        self.text_columns = [
-            "content", "title", "authors", "keywords", "source"
-        ]
-        # Added this to keep track of the label column without changing it.
+        # Columns to process
+        self.text_columns = ["content", "title", "authors", "keywords", "source"]
         self.label_column = "type"
 
-        # Vocabulary counters for analysis
+        # Vocabulary counters
         self.vocab_before = Counter()
         self.vocab_after_stopwords = Counter()
         self.vocab_after_stemming = Counter()
 
-    def clean_text_series(self, series):
-        """Fill NaN, turn to lowercase, remove URLs and HTML."""
-        s = series.fillna("").str.lower()
-        #s = s.str.replace(r"http\S+|www\S+", "", regex=True)
-        #s = s.str.replace(r"<.*?>", "", regex=True)
-        return s
+        # Number of parallel processes
+        self.n_process = n_process
 
-    # Tokenize one column at a time using spaCy, yielding lists of tokens. This is used in process_chunk, and separated to not blow up the RAM.
-    def tokenize_column(self, texts):
-        
-        for doc in self.nlp.pipe(texts, batch_size=500):
-            yield [token.text for token in doc if token.is_alpha]
+    def clean_text_series(self, series):
+        """Fill NaN, lowercase text."""
+        s = series.fillna("").str.lower()
+        # Remove URLs and HTML if needed
+        # s = s.str.replace(r"http\S+|www\S+", "", regex=True)
+        # s = s.str.replace(r"<.*?>", "", regex=True)
+        return s
 
     def process_chunk(self, chunk):
         """Clean, tokenize, remove stopwords, stem, update vocab, return processed DataFrame."""
-        
-        # Clean text feature columns
+
+        # Clean text columns
         for col in self.text_columns:
             if col in chunk.columns:
                 chunk[col] = self.clean_text_series(chunk[col])
 
-        # Filter invalid or empty content
+        # Filter invalid or empty content and labels
         if "content" in chunk.columns:
             chunk = chunk[chunk["content"].str.strip() != ""]
-            chunk = chunk.drop_duplicates(subset=["content", "title"])
+        if self.label_column in chunk.columns:
+            chunk = chunk[chunk[self.label_column].astype(str).str.strip() != ""]
+        chunk = chunk.drop_duplicates(subset=["content", "title"])
 
-        # Tokenize, remove stopwords, stem, and update vocab for the columns in text_columns
+        # Tokenize, remove stopwords, stem, update vocab
         for col in self.text_columns:
             if col in chunk.columns:
                 processed_texts = []
 
-                # Tokenize using spaCys' pipe. 
-                for doc in self.nlp.pipe(chunk[col], batch_size=500):
+                # spaCy parallel tokenization
+                for doc in self.nlp.pipe(chunk[col], batch_size=500, n_process=self.n_process):
                     tokens = [token.text for token in doc if token.is_alpha]
-                    
-                    # Update vocab before stopwords removal
+
+                    # Update vocab
                     self.vocab_before.update(tokens)
 
-                    # Remove stopwords and update vocab
+                    # Remove stopwords
                     tokens = [w for w in tokens if w not in self.stop_words]
                     self.vocab_after_stopwords.update(tokens)
 
-                    # Apply stemming and update vocab
+                    # Apply stemming
                     tokens = [self.stemmer.stem(w) for w in tokens]
                     self.vocab_after_stemming.update(tokens)
 
@@ -95,26 +86,35 @@ class FakeNewsPreprocessor:
 
         return chunk
 
-    # Change chunksize if your RAM is struggling, but it will take longer to process. Sample fraction is how much of the data you like to process, default is 10%.
     def load_and_process(self, input_csv, output_csv, chunksize=30_000, sample_frac=0.1):
-        """Process CSV in memory-efficient batches, save to disk incrementally, compute vocab stats."""
-        # The pandas CSV reader will crash if this is not here. Use high numbers.
+        """Process CSV in memory-efficient batches, save to disk incrementally."""
+
         csv.field_size_limit(10_000_000)
 
         if os.path.exists(output_csv):
             os.remove(output_csv)
 
-        # Save the first row so we could see how the data looks like.
         first_rows_path = "data/chunk_first_rows.csv"
         if os.path.exists(first_rows_path):
             os.remove(first_rows_path)
+
+        first_row_full_path = "data/first_row_full.csv"
+        if os.path.exists(first_row_full_path):
+            os.remove(first_row_full_path)
 
         start_time = time.time()
         batch_num = 0
 
         # Dynamically detect available columns
-        all_cols = pd.read_csv(input_csv, nrows=1).columns # Every column
+        all_cols = pd.read_csv(input_csv, nrows=1).columns
         used_cols = [col for col in self.text_columns + [self.label_column] if col in all_cols]
+
+        # Save and print first row of the original dataset (all columns, prior to removal)
+        first_row_full = pd.read_csv(input_csv, nrows=1)
+        print("First row of dataset (all columns, before any removal):")
+        print(first_row_full)
+        first_row_full.to_csv(first_row_full_path, index=False)
+        print(f"Saved first row of entire dataset to: {first_row_full_path}")
 
         for chunk in pd.read_csv(
             input_csv,
@@ -125,7 +125,7 @@ class FakeNewsPreprocessor:
         ):
             batch_num += 1
 
-            # Save first row of each chunk
+            # Save first row of chunk for inspection
             first_row = chunk.head(1)
             first_row.to_csv(
                 first_rows_path,
@@ -136,11 +136,11 @@ class FakeNewsPreprocessor:
 
             print(f"\nProcessing chunk {batch_num}...")
 
-            # Sample a fraction of the chunk to reduce memory usage, then process and save it incrementally.
+            # Sample fraction to reduce memory usage
             chunk = chunk.sample(frac=sample_frac, random_state=42)
             chunk = self.process_chunk(chunk)
-            
-            # Append processed chunk to output CSV
+
+            # Append processed chunk to CSV
             write_header = not os.path.exists(output_csv)
             chunk.to_csv(output_csv, mode="a", index=False, header=write_header)
 
@@ -152,23 +152,14 @@ class FakeNewsPreprocessor:
 
         self.report_vocab_statistics()
 
-
     def report_vocab_statistics(self):
-        """Print vocabulary sizes and reduction rates."""
+        """Print vocabulary sizes and reduction rates(I'll have to rerun this later on with a smaller sample of the dataset)."""
         vocab_before_size = len(self.vocab_before)
         vocab_after_stop_size = len(self.vocab_after_stopwords)
         vocab_after_stem_size = len(self.vocab_after_stemming)
 
-        # Ensure no division by zero.
-        if vocab_before_size > 0:
-            stopword_reduction = 1 - vocab_after_stop_size / vocab_before_size
-        else:
-            stopword_reduction = 0
-
-        if vocab_after_stop_size > 0:
-            stemming_reduction = 1 - vocab_after_stem_size / vocab_after_stop_size
-        else:
-            stemming_reduction = 0
+        stopword_reduction = 1 - vocab_after_stop_size / vocab_before_size if vocab_before_size else 0
+        stemming_reduction = 1 - vocab_after_stem_size / vocab_after_stop_size if vocab_after_stop_size else 0
 
         print("\n Vocabulary Statistics:")
         print(f"Vocabulary size before stopwords: {vocab_before_size}")
@@ -177,14 +168,18 @@ class FakeNewsPreprocessor:
         print(f"Vocabulary size after stemming: {vocab_after_stem_size}")
         print(f"Reduction rate after stemming: {stemming_reduction:.2%}")
 
-# Run the preprocessing
-processor = FakeNewsPreprocessor()
-input_path = "data/news_cleaned_2018_02_13.csv"
-output_path = "data/news_cleaned_2018_02_13_cleaned_10pct.csv"
 
+# Required on Windows, not in Linux/Mac, to avoid multiprocessing issues
+if __name__ == "__main__":
+    # Initialize processor with all available CPU processes 
+    processor = FakeNewsPreprocessor(n_process=os.cpu_count())
+    
+    input_path = "data/news_cleaned_2018_02_13.csv"
+    output_path = "data/news_cleaned_2018_02_13_cleaned_10pct.csv"
 
-# You can change the parameters if you wanted to here besides the defaults.
-processor.load_and_process(
-    input_csv=input_path,
-    output_csv=output_path
-)
+    processor.load_and_process(
+        input_csv=input_path,
+        output_csv=output_path,
+        chunksize=30_000,
+        sample_frac=0.1
+    )
