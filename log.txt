@@ -1,0 +1,153 @@
+Copied pasted my version of the run here, might automate it later on.
+
+Vocabulary Statistics:
+Before stopwords: 1636459
+After stopwords: 1636154
+Reduction: 0.02% (This looks a bit sus ngl, I'll rerun it later maybe it is indeed the truth and stop words aren't many)
+After stemming: 1427046
+Reduction: 12.78%
+(py310_clean) PS D:\Fake
+
+
+Using CONTENT ONLY...
+Train: 868371
+Validation: 108546
+Test: 108547
+
+===== BASELINE MODELS =====
+
+Training Logistic Regression...
+
+Logistic Regression (Validation):
+Accuracy: 0.900438523759512
+Precision: 0.9081030359899507
+Recall: 0.9268579019725968
+F1 Score: 0.9173846236172799
+
+Logistic Regression (Test):
+Accuracy: 0.9031663703280607
+Precision: 0.9107297047551239
+Recall: 0.9286663165374278
+F1 Score: 0.9196105574718357
+
+Training Naive Bayes...
+
+Naive Bayes (Validation):
+Accuracy: 0.8332135684410296
+Precision: 0.8014453968377097
+Recall: 0.9575822172791448
+F1 Score: 0.8725842095632222
+
+Naive Bayes (Test):
+Accuracy: 0.8345509318544041
+Precision: 0.8027100832179326
+Recall: 0.958061725725231
+F1 Score: 0.8735326220907714
+
+===== MODEL COMPARISON (TEST SET) =====
+              Model  Accuracy  Precision   Recall  F1 Score
+Logistic Regression  0.903166    0.91073 0.928666  0.919611
+        Naive Bayes  0.834551    0.80271 0.958062  0.873533
+
+===== FINAL EVALUATION (LOGISTIC REGRESSION) =====
+
+Validation:
+Accuracy: 0.900438523759512
+Precision: 0.9081030359899507
+Recall: 0.9268579019725968
+F1 Score: 0.9173846236172799
+
+Test:
+Accuracy: 0.9031663703280607
+Precision: 0.9107297047551239
+Recall: 0.9286663165374278
+F1 Score: 0.9196105574718357
+
+Detailed Report:
+              precision    recall  f1-score   support
+
+         0.0       0.89      0.87      0.88     43809
+         1.0       0.91      0.93      0.92     64738
+
+    accuracy                           0.90    108547
+   macro avg       0.90      0.90      0.90    108547
+weighted avg       0.90      0.90      0.90    108547
+
+
+===== IMPORTANT WORDS =====
+
+Top FAKE words:
+['blockchain', 'sourc', 'sheepl', 'getti', 'news', 'naturalnew', 'tlb', 'dcg', 'phaser', 'reader']
+
+Top RELIABLE words:
+['editor', 'photo', 'misstat', 'nyt', 'newslett', 'nov', 'ko', 'rec', 'main', 'diari']
+
+============================
+TASK 2: WITH METADATA
+============================
+d:\FakeNews Detection\simplemodel.py:72: DtypeWarning: Columns (6) have mixed types. Specify dtype option on import or set low_memory=False.
+  df = pd.read_csv(self.data_path)
+
+Using CONTENT + METADATA features...
+Train: 868371
+Validation: 108546
+Test: 108547
+
+===== BASELINE MODELS =====
+
+Training Logistic Regression...
+
+Logistic Regression (Validation):
+Accuracy: 0.9852597055626187
+Precision: 0.9860505935426257
+Recall: 0.9892797009438188
+F1 Score: 0.9876625079037059
+
+Logistic Regression (Test):
+Accuracy: 0.9852322035615908
+Precision: 0.9861849096705633
+Recall: 0.9890945040007415
+F1 Score: 0.9876375639137175
+
+Training Naive Bayes...
+
+Naive Bayes (Validation):
+Accuracy: 0.8939896449431577
+Precision: 0.8621285512136715
+Recall: 0.9787756615227767
+F1 Score: 0.9167564908524014
+
+Naive Bayes (Test):
+Accuracy: 0.8948658184933715
+Precision: 0.8633947554925585
+Recall: 0.9785442861997591
+F1 Score: 0.9173702121497357
+
+===== MODEL COMPARISON (TEST SET) =====
+              Model  Accuracy  Precision   Recall  F1 Score
+Logistic Regression  0.985232   0.986185 0.989095  0.987638
+        Naive Bayes  0.894866   0.863395 0.978544  0.917370
+
+===== FINAL EVALUATION (LOGISTIC REGRESSION) =====
+
+Validation:
+Accuracy: 0.9852597055626187
+Precision: 0.9860505935426257
+Recall: 0.9892797009438188
+F1 Score: 0.9876625079037059
+
+Test:
+Accuracy: 0.9852322035615908
+Precision: 0.9861849096705633
+Recall: 0.9890945040007415
+F1 Score: 0.9876375639137175
+
+Detailed Report:
+              precision    recall  f1-score   support
+
+         0.0       0.98      0.98      0.98     43809
+         1.0       0.99      0.99      0.99     64738
+
+    accuracy                           0.99    108547
+   macro avg       0.98      0.98      0.98    108547
+weighted avg       0.99      0.99      0.99    108547
